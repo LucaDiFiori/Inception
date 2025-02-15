@@ -1,0 +1,135 @@
+# La sezione services: rappresenta la definizione dei servizi che compongono la tua applicazione. 
+# Ogni servizio è un container Docker che esegue una parte specifica dell'applicazione.
+services:
+
+# Servizio per il database MariaDB
+# - mariadb: nome del servizio per il database MariaDB
+# - container_name: nome del container Docker che verrà creato per questo servizio.
+# - build: specifica l'immagine Docker da utilizzare per creare il container per questo servizio
+# - env_file: specifica il file .env da utilizzare per impostare le variabili d'ambiente.
+#             Queste variabili vengono aggiunte all'ambiente del container, dove possono essere utilizzate
+# - networks: specifica la rete a cui il container deve essere collegato
+# - volumes: specifica i volumi da montare nel container per gestire la persistenza dei dati.
+#            In questo caso, il volume 'mariadb' (nome del volume da me creato) viene montato nella 
+#            directory '/var/lib/mysql' del container.
+# - expose: serve a specificare quali porte un container espone per consentire la comunicazione con altri 
+#           container all'interno della stessa rete Docker (nel mio caso la rete "inception").
+#           È importante notare che expose non rende la porta accessibile al di fuori del sistema Docker. 
+#           Se vuoi che la porta sia accessibile anche dall'esterno del container (ad esempio, dal tuo 
+#           host o da altri sistemi), dovresti utilizzare la direttiva ports 
+# - restart: specifica la politica di riavvio del container. 
+#            In questo caso, il container verrà sempre riavviato se si arresta in modo anomalo.
+  mariadb:
+    container_name: mariadb
+    build: ./requirements/mariadb
+    env_file:
+      - .env
+    networks:
+      - inception
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    expose:
+      - "3306"
+    restart: always
+    healthcheck:  #aggiungo questo 
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+
+# Servizio per l'applicazione WordPress
+# - depends_on: specifica i servizi che devono essere avviati prima di questo servizio.
+  wordpress:
+    container_name: wordpress
+    build: ./requirements/wordpress
+    env_file:
+      - .env
+    networks:
+      - inception
+    # depends_on:
+    #   # - mariadb
+    # depends_on:
+    #     mariadb:
+    #         condition: service_healthy
+    volumes:
+      - wordpress_data:/var/www/html
+    expose:
+      - "9000"
+    restart: always
+
+
+# Servizio per il web server Nginx
+# NOTE:
+# - Volumes: Nginx condivide il volume di WordPress per poter servire direttamente i file 
+#            statici generati da WordPress e per facilitare la gestione delle richieste. 
+#            Questa pratica è comune in molte architetture web per migliorare l'efficienza 
+#            e la flessibilità nella gestione dei contenuti.
+# -Ports: nginx sarà l'unico servizio che esporrà una porta all'esterno del container Docker e
+#         della rete interna "inception". Tutti gli altri servizi non saranno esposti esternamente.
+  nginx:
+    container_name: nginx
+    build: ./requirements/nginx
+    env_file:
+      - .env
+    networks:
+      - inception
+    depends_on:
+      - wordpress
+    volumes:
+      - wordpress_data:/var/www/wordpress
+    ports:
+      - 443:443
+    restart: always
+
+
+# Definizione dei volumi
+volumes:
+
+# Volume di MariaDB
+# - mariadb_data: nome del volume
+# - driver: specifica il driver di storage da utilizzare per il volume. Con "local" si indica
+#           che il volume è gestito dal driver di storage locale di Docker.
+#           Utilizzando il driver locale, Docker crea un volume che memorizza i dati sul filesystem 
+#           dell'host (cioè la macchina fisica o virtuale su cui è in esecuzione Docker). 
+#           Questo significa che i dati saranno accessibili anche se il container viene fermato o eliminato.
+# - driver_opts: specifica le opzioni aggiuntive del driver di storage
+# - type: specifica il tipo di storage da utilizzare per il volume.
+#         Questa opzione indica che non si sta specificando un tipo di filesystem per il volume. 
+#         Con type: none, Docker non utilizza alcun tipo di filesystem specifico per il volume, 
+#         ma piuttosto consente l'uso diretto di un percorso esistente sul filesystem dell'host.
+# - device: specifica il percorso del dispositivo di storage da utilizzare per il volume
+# - o: specifica le opzioni aggiuntive per il driver di storage. Nel nostro caso "bind" 
+#                Indica che si utilizza un'opzione di binding per il volume, permettendo 
+#                di montare una directory specifica del filesystem dell'host nel container.
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/ldi-fior/data/mariadb_data 
+      o: bind, rw
+
+
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/ldi-fior/data/wordpress_data
+      o: bind, rw #aggiunto rw
+
+
+
+# Definizione delle reti
+# La sezione networks nel file docker-compose.yml consente di definire e configurare 
+# le reti che i contenitori utilizzeranno per comunicare tra loro
+
+# - inception: nome della rete
+# - driver: Questa riga specifica il tipo di driver da utilizzare per la rete. 
+#           Il driver "bridge" è il tipo di rete predefinito in Docker.
+# - bridge: Le reti bridge sono isolate tra loro e consentono ai contenitori di comunicare 
+#           tra loro all'interno della stessa rete. Utilizzando una rete bridge, i contenitori 
+#           possono risolvere i nomi host degli altri contenitori nella stessa rete e comunicare direttamente.
+networks:
+  inception:
+    driver: bridge
