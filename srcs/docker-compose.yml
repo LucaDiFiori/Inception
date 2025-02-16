@@ -1,8 +1,34 @@
-# La sezione services: rappresenta la definizione dei servizi che compongono la tua applicazione. 
-# Ogni servizio è un container Docker che esegue una parte specifica dell'applicazione.
+# Descrizione Generale dell'Infrastruttura:
+# -----------------------------------------
+# Questa infrastruttura Docker Compose definisce tre servizi principali: MariaDB, WordPress e Nginx.
+# 
+# - MariaDB: È un servizio di database relazionale che memorizza i dati dell'applicazione WordPress.
+# - WordPress: È un servizio di gestione dei contenuti (CMS) che consente di creare e gestire siti web.
+# - Nginx: È un web server che serve il sito web WordPress agli utenti finali.
+#
+# Comunicazione tra i servizi:
+# - Il servizio WordPress comunica con il servizio MariaDB per leggere e scrivere dati nel database.
+# - Il servizio Nginx comunica con il servizio WordPress per servire i contenuti del sito web agli utenti.
+#
+# Descrizione Generale:
+# Questa configurazione Docker Compose crea un ambiente completo per eseguire un sito web basato su WordPress.
+# Il servizio MariaDB fornisce il backend del database, il servizio WordPress gestisce i contenuti del sito,
+# e il servizio Nginx funge da front-end, servendo le pagine web agli utenti finali. I servizi sono collegati
+# tramite una rete Docker chiamata "inception" e utilizzano volumi Docker per la persistenza dei dati.
+#
+# Funzionamento:
+# L'utente si collega al sito web inviando una richiesta al server Nginx tramite il browser web.
+# Nginx riceve la richiesta e la inoltra al servizio WordPress, che genera la pagina web richiesta.
+# Se WordPress ha bisogno di accedere ai dati, comunica con il servizio MariaDB per leggere o scrivere nel database.
+# Una volta generata la pagina, WordPress la invia a Nginx, che la restituisce all'utente.
+# In questo modo, l'utente può visualizzare e interagire con il sito web.
+
+
+
 services:
 
 # Servizio per il database MariaDB
+# --------------------------------
 # - mariadb: nome del servizio per il database MariaDB
 # - container_name: nome del container Docker che verrà creato per questo servizio.
 # - build: specifica l'immagine Docker da utilizzare per creare il container per questo servizio
@@ -10,7 +36,7 @@ services:
 #             Queste variabili vengono aggiunte all'ambiente del container, dove possono essere utilizzate
 # - networks: specifica la rete a cui il container deve essere collegato
 # - volumes: specifica i volumi da montare nel container per gestire la persistenza dei dati.
-#            In questo caso, il volume 'mariadb' (nome del volume da me creato) viene montato nella 
+#            In questo caso, il volume 'mariadb_data' (nome del volume da me creato) viene montato nella 
 #            directory '/var/lib/mysql' del container.
 # - expose: serve a specificare quali porte un container espone per consentire la comunicazione con altri 
 #           container all'interno della stessa rete Docker (nel mio caso la rete "inception").
@@ -19,6 +45,13 @@ services:
 #           host o da altri sistemi), dovresti utilizzare la direttiva ports 
 # - restart: specifica la politica di riavvio del container. 
 #            In questo caso, il container verrà sempre riavviato se si arresta in modo anomalo.
+# - healthcheck: specifica come Docker deve verificare lo stato di salute del container.
+#   - test: il comando da eseguire. In questo caso, utilizza "mysqladmin ping" per controllare 
+#           se il server MySQL è in esecuzione.
+#   - interval: la frequenza con cui Docker esegue il controllo di salute. In questo caso, ogni 10 secondi.
+#   - timeout: il tempo massimo che Docker aspetta per il completamento del controllo di salute. 
+#   - retries: il numero di tentativi che Docker esegue prima di considerare il container non sano
+#   - start_period: il tempo di attesa prima che Docker inizi a eseguire i controlli di salute.
   mariadb:
     container_name: mariadb
     build: ./requirements/mariadb
@@ -31,7 +64,7 @@ services:
     expose:
       - "3306"
     restart: always
-    healthcheck:  #aggiungo questo 
+    healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--silent"]
       interval: 10s
       timeout: 5s
@@ -39,8 +72,11 @@ services:
       start_period: 30s
 
 
-# Servizio per l'applicazione WordPress
-# - depends_on: specifica i servizi che devono essere avviati prima di questo servizio.
+# Servizio per l'applicazione WordPress:
+# --------------------------------------
+# depends_on: specifica che il servizio WordPress dipende dal servizio MariaDB.
+# La condizione 'service_healthy' assicura che il servizio MariaDB sia considerato sano
+# (passi il controllo di salute) prima di avviare il servizio WordPress.
   wordpress:
     container_name: wordpress
     build: ./requirements/wordpress
@@ -48,11 +84,9 @@ services:
       - .env
     networks:
       - inception
-    # depends_on:
-    #   # - mariadb
-    # depends_on:
-    #     mariadb:
-    #         condition: service_healthy
+    depends_on:
+        mariadb:
+            condition: service_healthy
     volumes:
       - wordpress_data:/var/www/html
     expose:
@@ -60,14 +94,23 @@ services:
     restart: always
 
 
-# Servizio per il web server Nginx
-# NOTE:
-# - Volumes: Nginx condivide il volume di WordPress per poter servire direttamente i file 
+# Servizio per il web server Nginx:
+# ---------------------------------
+# - nginx: nome del servizio per il web server Nginx.
+# - container_name: nome del container Docker che verrà creato per questo servizio.
+# - build: specifica l'immagine Docker da utilizzare per creare il container per questo servizio.
+# - env_file: specifica il file .env da utilizzare per impostare le variabili d'ambiente.
+#             Queste variabili vengono aggiunte all'ambiente del container, dove possono essere utilizzate.
+# - networks: specifica la rete a cui il container deve essere collegato.
+# - depends_on: specifica che il servizio Nginx dipende dal servizio WordPress.
+# - volumes: Nginx condivide il volume di WordPress per poter servire direttamente i file 
 #            statici generati da WordPress e per facilitare la gestione delle richieste. 
 #            Questa pratica è comune in molte architetture web per migliorare l'efficienza 
 #            e la flessibilità nella gestione dei contenuti.
-# -Ports: nginx sarà l'unico servizio che esporrà una porta all'esterno del container Docker e
-#         della rete interna "inception". Tutti gli altri servizi non saranno esposti esternamente.
+# - ports: Nginx sarà l'unico servizio che esporrà una porta all'esterno del container Docker e
+#          della rete interna "inception". Tutti gli altri servizi non saranno esposti esternamente.
+# - restart: specifica la politica di riavvio del container. In questo caso, il container verrà sempre 
+#            riavviato se si arresta in modo anomalo..
   nginx:
     container_name: nginx
     build: ./requirements/nginx
@@ -97,12 +140,13 @@ volumes:
 # - driver_opts: specifica le opzioni aggiuntive del driver di storage
 # - type: specifica il tipo di storage da utilizzare per il volume.
 #         Questa opzione indica che non si sta specificando un tipo di filesystem per il volume. 
-#         Con type: none, Docker non utilizza alcun tipo di filesystem specifico per il volume, 
+#         Con "type: none", Docker non utilizza alcun tipo di filesystem specifico per il volume, 
 #         ma piuttosto consente l'uso diretto di un percorso esistente sul filesystem dell'host.
 # - device: specifica il percorso del dispositivo di storage da utilizzare per il volume
 # - o: specifica le opzioni aggiuntive per il driver di storage. Nel nostro caso "bind" 
 #                Indica che si utilizza un'opzione di binding per il volume, permettendo 
 #                di montare una directory specifica del filesystem dell'host nel container.
+#                Con "rw" si indica che il volume è montato in modalità di lettura/scrittura.
   mariadb_data:
     driver: local
     driver_opts:
@@ -116,7 +160,7 @@ volumes:
     driver_opts:
       type: none
       device: /home/ldi-fior/data/wordpress_data
-      o: bind, rw #aggiunto rw
+      o: bind, rw 
 
 
 

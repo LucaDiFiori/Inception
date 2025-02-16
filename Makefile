@@ -1,15 +1,15 @@
+# Macro per la creazione di volumi e user
 MARIA_VOLUME = /home/ldi-fior/data/mariadb_data
 WORDPRESS_VOLUME = /home/ldi-fior/data/wordpress_data
 USER = ldi-fior
 
-# DEVO CAMBIARE I PERCORSI DEI VOLUMI CON POSTI IN CUI NON HO BISOGNO DEL ROOT
 
 all: set-host create-volume up
 
-# Avvio i servizi docker
-# Creo i volumi sul mio host se non esistono
 
-
+# create-volume target: crea i volumi necessari per MariaDB e WordPress.
+# Controlla se le directory dei volumi non esistono già.
+# Se non esistono, le crea, imposta i permessi a 777 e stampa un messaggio di conferma.
 create-volume:
 	@if [ ! -d $(MARIA_VOLUME) ]; then \
 		mkdir -p $(MARIA_VOLUME); \
@@ -24,6 +24,13 @@ create-volume:
 	fi
 	@echo -e "\033[0;32m--> STARTING DOCKER SERVICES:\033[0m"		
 
+
+# up target: Avvia i servizi Docker utilizzando docker-compose.
+# L'opzione --build nel comando docker-compose up forza la ricostruzione 
+# delle immagini Docker definite nel file docker-compose.yml prima di avviare i servizi. 
+# Questo significa che Docker ricostruirà le immagini anche se sono già presenti, 
+# assicurandosi che eventuali modifiche apportate ai Dockerfile o al contesto di 
+# build siano incluse nelle immagini utilizzate per avviare i container.
 up:
 	docker-compose -f ./srcs/docker-compose.yml up --build
 
@@ -36,17 +43,12 @@ up:
 # "creando l'alias" `ldi-fior.42.rm` per l'indirizzo IP 127.0.0.1
 #
 # Perchè:
-# L'indirizzo 127.0.0.1 è l'indirizzo di loopback, che rappresenta il tuo computer stesso. 
-# È utilizzato per consentire ai programmi in esecuzione sulla tua macchina di comunicare 
+# L'indirizzo 127.0.0.1 è l'indirizzo di loopback, che rappresenta il mio stesso computer. 
+# È utilizzato per consentire ai programmi in esecuzione sulla macchina di comunicare 
 # tra loro senza utilizzare una rete esterna.
 # Visto che il server NGINX è in esecuzione come container sul mio host personale, 
 # per accedere al sito dovrò inviare una richiesta al mio indirizzo IP di loopback 
 # (127.0.0.1) rimappato a "ldi-fior.42.rm"
-#
-# Accesso locale: Quando accedi a un servizio in esecuzione sul tuo computer, come il server 
-# web NGINX che hai configurato nei tuoi container Docker, lo fai tramite questo indirizzo. 
-# Usando localhost o 127.0.0.1, stai dicendo al tuo browser di cercare il servizio sul tuo 
-# stesso dispositivo.
 set-host:
 	@echo -e "\033[0;32m--> Setting up hosts file:\033[0m"
 	@echo -e "\033[0;32m127.0.0.1 -> ldi-fior.42.rm\033[0m"
@@ -56,20 +58,20 @@ set-host:
 
 
 
-# === CLEAN ===  
-
-# PROBLEMI:  NON FUNZIONA NIENTE DI QUESTE CLEAN
-
-# Questo comando ferma i container in esecuzione e rimuove i container, le reti create, 
-# e i volumi definiti nel file docker-compose.yml.
-stop:
+# down target: Ferma e rimuove i container, le reti, i volumi e le immagini create 
+# dai servizi definiti nel file docker-compose.yml.
+down:
 	@docker-compose -f ./srcs/docker-compose.yml down
 	
 
-# - Se ho container in esecuzione, li stoppo e rimuovo
-# - Se ho container fermi, li rimuovo
-# - Rimuovo le immagini
-# - Rimuovo i volumi (di docker)
+# clean target:
+# - Se ci sono container in esecuzione, li ferma.
+# - Se ci sono container fermi, li rimuove.
+# - Rimuove tutte le immagini Docker.
+# - Rimuove tutti i volumi Docker.
+# - Rimuove la voce specifica dal file hosts.
+# - Rimuove tutti i dati nella directory specificata.
+# - Esegue una pulizia completa del sistema Docker, rimuovendo tutte le risorse inutilizzate.
 clean:
 	@if [ -n "$$(docker ps -q)" ]; then \
 		docker container stop $$(docker ps -q); \
@@ -85,19 +87,7 @@ clean:
 	fi
 	@sudo sed -i '/127\.0\.0\.1 ldi-fior\.42\.rm/d' /etc/hosts
 	@sudo rm -rf /home/$(USER)/data/*
-#	@docker network ls --format "{{.Name}} {{.Driver}}" | \
-#	grep -vE '(bridge|host|none)' | \
-#	awk '{ print $$1 }' | \
-#	xargs -r docker network rm
+	@docker system prune -a -f
 
-
-# Questo comando è utilizzato per ripulire il sistema Docker rimuovendo risorse non utilizzate
-# capire cosa mettere qui
-prune: clean
-	docker system prune -a
-	docker container prune 
-	docker images -q | xargs -r docker rmi
-#aggiunto questo!!!!!!!!!!!!!!!!!!!1
-	docker volume prune 
 
 

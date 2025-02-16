@@ -1,108 +1,66 @@
 #!/bin/sh
 
+# Controlla se la directory dei socket di MySQL non esiste
+# Se non esiste la crea e ne cambia il proprietario in mysql:mysql
 if [ ! -d "/run/mysqld" ]; then
-	mkdir -p /run/mysqld
-	chown -R mysql:mysql /run/mysqld
+    mkdir -p /run/mysqld
+    chown -R mysql:mysql /run/mysqld
 fi
 
+# Controlla se MySQL è già stato inizializzato verificando la directory dei dati
 if [ ! -d "/var/lib/mysql/mysql" ]; then
-	
-	chown -R mysql:mysql /var/lib/mysql
+    # Cambia il proprietario della directory dei dati di MySQL
+    chown -R mysql:mysql /var/lib/mysql
 
-	# init database
-	mysql_install_db --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm > /dev/null
+    # Inizializza il database di MySQL
+    mysql_install_db --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm > /dev/null
 
-	tfile=`mktemp`
-	if [ ! -f "$tfile" ]; then
-		return 1
-	fi
+    # Crea un file temporaneo per i comandi SQL di inizializzazione
+    tfile=`mktemp`
+    if [ ! -f "$tfile" ]; then
+        return 1  # Se il file temporaneo non è stato creato, esce con errore
+    fi
 
-	cat << EOF > $tfile
-	
+    # Scrive i comandi SQL di configurazione iniziale nel file temporaneo
+    cat << EOF > $tfile
+
 USE mysql;
 FLUSH PRIVILEGES;
 
-DELETE FROM	mysql.user WHERE User='';
+-- Rimuove utenti anonimi
+DELETE FROM mysql.user WHERE User='';
+
+-- Rimuove il database di test
 DROP DATABASE test;
 DELETE FROM mysql.db WHERE Db='test';
+
+-- Restringe l'accesso dell'utente root alle connessioni locali
 DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
 
--- Creo il database
+-- Crea il database specificato dalla variabile d'ambiente
 CREATE DATABASE $MYSQL_DATABASE CHARACTER SET utf8 COLLATE utf8_general_ci;
 
--- Creo un utente non-root e garantisco i privilegi 
-CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED by '$MYSQL_PASSWORD';
+-- Crea un utente con privilegi sul database creato
+CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
 GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';
 
--- Creo una root password e concedo accesso root da qualsiasi host
+-- Imposta la password di root e permette l'accesso da qualsiasi host
 ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD '$MYSQL_ROOT_PASSWORD';
 
 FLUSH PRIVILEGES;
 EOF
-# CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
-# ALTER USER 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
-# GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 
-	# run init.sql
-	/usr/bin/mysqld --user=mysql --bootstrap < $tfile
-	rm -f $tfile
+    # Esegue i comandi SQL iniziali usando MySQL in modalità bootstrap
+    /usr/bin/mysqld --user=mysql --bootstrap < $tfile
+    # Rimuove il file temporaneo dopo l'inizializzazione
+    rm -f $tfile
 fi
 
-
-# permesso connessioni remote
+# Abilita connessioni remote: rimuove 'skip-networking' dal file di configurazione di MySQL
 sed -i "s|skip-networking|# skip-networking|g" /etc/my.cnf.d/mariadb-server.cnf
+
+# Configura MySQL per accettare connessioni da qualsiasi indirizzo IP
 sed -i "s|.*bind-address\s*=.*|bind-address=0.0.0.0|g" /etc/my.cnf.d/mariadb-server.cnf
 
+# Avvia il server MySQL in modalità normale
 exec /usr/bin/mysqld --user=mysql --console
-
-
-
-
-
-
-# echo "Creating initdb.d directory..."
-# mkdir -p initdb.d
-# echo "✅ Directory created succesfully!"
-
-# # Generate initialization SQL file
-# echo "Creating init.sql file for db and user setup..."
-# cat << EOF > /initdb.d/init.sql
-# -- Creo il database
-# CREATE DATABASE $MYSQL_DATABASE CHARACTER SET utf8 COLLATE utf8_general_ci;
-
-# -- Creo un utente non-root e garantisco i privilegi 
-# CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED by '$MYSQL_PASSWORD';
-# GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';
-
-# -- Creo una root password e concedo accesso root da qualsiasi host
-# ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
-# CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
-# GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
-
-# -- Flush privileges to apply changes
-# FLUSH PRIVILEGES;
-# EOF
-
-# echo "✅ init.sql created succesfully!"
-
-# echo "======== Starting Mariadb ========"
-
-# cat << "EOF"
-
-# ,---.    ,---.   ____    .-------.   .-./`)    ____     ______      _______    
-# |    \  /    | .'  __ `. |  _ _   \  \ .-.') .'  __ `. |    _ `''. \  ____  \  
-# |  ,  \/  ,  |/   '  \  \| ( ' )  |  / `-' \/   '  \  \| _ | ) _  \| |    \ |  
-# |  |\_   /|  ||___|  /  ||(_ o _) /   `-'`"`|___|  /  ||( ''_'  ) || |____/ /  
-# |  _( )_/ |  |   _.-`   || (_,_).' __ .---.    _.-`   || . (_) `. ||   _ _ '.  
-# | (_ o _) |  |.'   _    ||  |\ \  |  ||   | .'   _    ||(_    ._) '|  ( ' )  \ 
-# |  (_,_)  |  ||  _( )_  ||  | \ `'   /|   | |  _( )_  ||  (_.\.' / | (_{;}_) | 
-# |  |      |  |\ (_ o _) /|  |  \    / |   | \ (_ o _) /|       .'  |  (_,_)  / 
-# '--'      '--' '.(_,_).' ''-'   `'-'  '---'  '.(_,_).' '-----'`    /_______.'  
-                                                                               
-# EOF
-
-# sed -i "s|skip-networking|# skip-networking|g" /etc/my.cnf.d/mariadb-server.cnf
-# sed -i "s|.*bind-address\s*=.*|bind-address=0.0.0.0|g" /etc/my.cnf.d/mariadb-server.cnf
-
-# # Start MariaDB with the initialization file
-# exec mysqld --datadir="$MARIADB_DATA_DIR" --user=mysql --init-file=/initdb.d/init.sql
