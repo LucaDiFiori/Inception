@@ -7,6 +7,12 @@ if [ ! -d "/run/mysqld" ]; then
     chown -R mysql:mysql /run/mysqld
 fi
 
+
+
+# DA FINIRE DI COMMENTARE
+
+
+
 # Controlla se MySQL è già stato inizializzato verificando la directory dei dati
 if [ ! -d "/var/lib/mysql/mysql" ]; then
     # Cambia il proprietario della directory dei dati di MySQL

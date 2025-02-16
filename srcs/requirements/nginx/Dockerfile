@@ -1,34 +1,17 @@
-# Utilizza l'immagine base di Debian Bullseye
 FROM debian:bullseye
+
 
 # - Aggiorna l'elenco dei pacchetti disponibili
 # - installa Nginx
-# - installa OpenSSL:  è una libreria software e un toolkit per il protocollo SSL e TLS.
-#                      Viene utilizzato per implementare la crittografia e garantire 
-#                      comunicazioni sicure su reti di computer (creare e gestire i certificati).
-#
-# mkdir -p /run/nginx: 
-# La directory /run/nginx è utilizzata da Nginx per memorizzare file temporanei 
-# e di stato necessari per il funzionamento del server web.
-# Ecco alcuni esempi di cosa potrebbe essere memorizzato in questa directory:
-#
-# - File di PID (Process ID): Nginx crea un file di PID che contiene l'ID del 
-#                             processo principale di Nginx. Questo file è utilizzato p
-#                             er gestire il processo di Nginx, ad esempio per inviare 
-#                             segnali di riavvio o arresto
-# - Socket Unix: socket Unix utilizzati  la comunicazione con altri servizi (come PHP-FPM), 
-#               i file di socket possono essere memorizzati in questa directory.
-#
-# mkdir -p /etc/nginx/ssl:
-# - I certificati SSL (Secure Sockets Layer) sono utilizzati per stabilire una connessione 
-#   sicura e crittografata tra un server web e un client (come un browser web). 
-#   Questo garantisce che i dati trasmessi tra il server e il client siano protetti da intercettazioni e manomissioni.
-#
-# - TLS (Transport Layer Security) è il successore di SSL e fornisce un livello di sicurezza migliorato. 
-#   Anche se spesso si parla di SSL, la maggior parte delle connessioni sicure oggi utilizza TLS.
-#
-# Questo comando crea una directory /etc/nginx/ssl dove puoi memorizzare i certificati SSL/TLS. 
-# Nginx utilizzerà questi certificati per stabilire connessioni HTTPS sicure con i client.
+# - installa OpenSSL:  
+#   è una libreria software e un toolkit per il protocollo SSL e TLS.
+#   Viene utilizzato per implementare la crittografia e garantire 
+#   comunicazioni sicure su reti di computer (creare e gestire i certificati).
+# - build-essential: installa strumenti di compilazione essenziali come make, gcc, ecc.
+# - bash: installa la shell Bash.
+# - apt-get clean: pulisce la cache dei pacchetti per ridurre lo spazio occupato.
+# - rm -rf /var/lib/apt/lists/*: rimuove le liste dei pacchetti per ridurre ulteriormente 
+#   lo spazio occupato.
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     build-essential \
@@ -38,9 +21,21 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# directory per i socket di nginx
-# Questa cartella  è utilizzata da Nginx per memorizzare file temporanei e di stato necessari per il suo funzionamento. 
-# Nginx utilizza socket Unix per la comunicazione con altri servizi (come PHP-FPM), i file di socket possono essere memorizzati in questa directory.
+
+# La directory /run/nginx è utilizzata da Nginx per memorizzare file temporanei 
+# e di stato necessari per il funzionamento del server web.
+# Ecco alcuni esempi di cosa potrebbe essere memorizzato in questa directory:
+#
+# - File di PID (Process ID): Nginx crea un file di PID che contiene l'ID del 
+#                             processo principale di Nginx. Questo file è utilizzato p
+#                             er gestire il processo di Nginx, ad esempio per inviare 
+#                             segnali di riavvio o arresto
+# - Socket Unix: Nginx comunica con altri servizi come PHP-FPM e per farlo utilizza
+#                socket Unix invece di connessioni TCP.
+#                Questi socket Unix verranno memorizzati in questa directory.
+#
+# Quando un container viene avviato, la directory /run potrebbe non contenere 
+# automaticamente la sottodirectory /run/nginx, quindi Nginx potrebbe non riuscire ad avviarsi.
 RUN mkdir -p /run/nginx    
 
 
@@ -53,8 +48,21 @@ RUN mkdir -p /run/nginx
 # o aggiungere configurazioni senza dover modificare il file principale nginx.conf.
 COPY conf/nginx.conf /etc/nginx/conf.d/default.conf
 
+
 # Crea directory per i certificati SSL
+# - I certificati SSL (Secure Sockets Layer), sono file utilizzati per stabilire una connessione 
+#   sicura e crittografata tra un server web e un client (come un browser web). 
+#   Questo garantisce che i dati trasmessi tra il server e il client siano protetti 
+#   da intercettazioni e manomissioni.
+#
+# - TLS (Transport Layer Security) è il successore di SSL e fornisce un livello di 
+#   sicurezza migliorato. Anche se spesso si parla di SSL, la maggior parte 
+#   delle connessioni sicure oggi utilizza TLS.
+#
+# Questo comando crea una directory /etc/nginx/ssl dove puoi memorizzare i certificati SSL/TLS. 
+# Nginx utilizzerà questi certificati per stabilire connessioni HTTPS sicure con i client.
 RUN mkdir /etc/nginx/ssl
+
 
 # Genera un certificato SSL autofirmato utilizzando OpenSSL
 # - req: Questo comando viene utilizzato per generare e gestire i certificati X.509,
@@ -73,7 +81,7 @@ RUN openssl req -newkey rsa:4096 -x509 -sha256 -days 365 \
      -subj "/C=IT/ST=Rome/L=Rome/O=42 School/OU=ldi-fior/CN=ldi-fior/"
 
 
-
+# espongo la porta 443 per consentire il traffico HTTPS verso il container.
 EXPOSE 443
 
 

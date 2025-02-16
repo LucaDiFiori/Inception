@@ -20,7 +20,7 @@ Un socket è un file speciale che permette la comunicazione tra processi all'int
 Quando un client MySQL (come mysql da terminale o un'applicazione PHP) si connette al server MySQL, può farlo in due modi principali:
 1. **Tramite socket Unix** (quando client e server sono sulla stessa macchina):
     - Il server MySQL crea un file socket, ad esempio /run/mysqld/mysqld.sock.
-    - Il client MySQL, invece di aprire una connessione di rete, scrive direttamente su questo file.
+    - Il client MySQL, invece di aprire una connessione di rete, scrive direttamente su questo file. (Il client principale è il comando mysql, una shell interattiva che consente di eseguire query SQL, gestire database e tabelle, e amministrare il server MySQL.)
     - Il server legge il file, risponde, e la comunicazione avviene tramite il filesystem invece che tramite la rete.
 
 2. **Tramite TCP/IP** (necessario quando il client è su un'altra macchina):
