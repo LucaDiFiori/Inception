@@ -69,7 +69,9 @@ COPY tools/wp-config.sh /usr/local/bin/
 # rendi eseguibile lo script
 RUN chmod +x /usr/local/bin/wp-config.sh
 
-# CAPIRE SE VA RIMESSO OPPURE NO: RUNNARE COSI E VEDERE SE FUNZIONA, ALTRIMENTI RIMETTERLO <-------
+# memory_limit: Questo parametro in php.ini specifica la 
+# quantità massima di memoria che uno script PHP può utilizzare.
+# Con questo comando gli script PHP non potranno utilizzare più di 512 megabyte di memoria.
 RUN echo "memory_limit = 512M" >> /etc/php82/php.ini
 
 # Usare ENTRYPOINT garantisce che il comportamento desiderato (configurare WordPress 
