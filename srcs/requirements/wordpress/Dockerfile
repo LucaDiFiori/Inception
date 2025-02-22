@@ -1,8 +1,8 @@
 FROM alpine:3.20.5
 
+# php82-fpm è un gestore di processi FastCGI per PHP. Cioè sto installanto PHP-FMP
 RUN apk update && apk upgrade && apk add --no-cache \
     php82 \
-    # php82-fpm è un gestore di processi FastCGI per PHP. Cioè sto installanto PHP-FMP
     php82-fpm \ 
     php82-mysqli \
     php82-json \
@@ -70,7 +70,7 @@ COPY tools/wp-config.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/wp-config.sh
 
 # CAPIRE SE VA RIMESSO OPPURE NO: RUNNARE COSI E VEDERE SE FUNZIONA, ALTRIMENTI RIMETTERLO <-------
-# RUN echo "memory_limit = 512M" >> /etc/php82/php.ini
+RUN echo "memory_limit = 512M" >> /etc/php82/php.ini
 
 # Usare ENTRYPOINT garantisce che il comportamento desiderato (configurare WordPress 
 # e avviare il server PHP) venga sempre eseguito ogni volta che il container viene avviato, 
