@@ -1,9 +1,3 @@
-# CONCETTI IMPORTANTI
-- [MYSQL SOCKET](#MYSQL_SOCKET)
-
-***
-***
-
 # MYSQL SOCKET
 Lo script inizia creando la cartella per i socket MySQL.
 ```sh

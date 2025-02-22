@@ -10,6 +10,7 @@
 #                     direttamente dal container senza bisogno di strumenti esterni.
 # - COPY: copia lo script configure.sh dalla directory tools del contesto di build alla cartella temporanea del container.
 # - ENTRYPOINT: imposta lo script configure.sh come comando eseguito all'avvio del container.
+
 FROM alpine:3.20.5
 
 RUN apk update && apk upgrade && apk add --no-cache \
