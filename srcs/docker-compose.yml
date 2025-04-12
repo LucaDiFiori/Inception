@@ -121,7 +121,7 @@ services:
     depends_on:
       - wordpress
     volumes:
-      - wordpress_data:/var/www/wordpress
+      - wordpress_data:/var/www/html
     ports:
       - 443:443
     restart: always
